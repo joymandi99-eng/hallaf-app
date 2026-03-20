@@ -1,3 +1,4 @@
+from engine import process_frame
 import streamlit as st
 import cv2
 import numpy as np
@@ -8,8 +9,7 @@ st.title("Hallaf AI Real Estate Effect 🎬")
 
 uploaded_file = st.file_uploader("Upload your video", type=["mp4", "mov"])
 
-def apply_effect(frame):
-    h, w, _ = frame.shape
+
     
     # تحويل للصورة الرمادية
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -39,10 +39,10 @@ if uploaded_file:
 
     clip = VideoFileClip(tfile.name)
     
-    def process_frame(frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        frame = apply_effect(frame)
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+  def process(frame):
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    frame = process_frame(frame)
+    return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     new_clip = clip.fl_image(process_frame)
 
