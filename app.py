@@ -1,70 +1,70 @@
 import streamlit as st
-from openai import OpenAI
-import base64
+import replicate
+import tempfile
 
-# إعداد API
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-# عنوان التطبيق
-st.set_page_config(page_title="Nourallah AI Studio PRO MAX", layout="centered")
-
+# إعداد الصفحة
+st.set_page_config(page_title="Nourallah AI Studio PRO", layout="centered")
 st.title("Nourallah AI Studio PRO MAX 🔥")
 
-# رفع الصورة
+# API
+replicate_client = replicate.Client(
+    api_token=st.secrets["REPLICATE_API_TOKEN"]
+)
+
+# رفع صورة
 uploaded_file = st.file_uploader("Upload Product Image", type=["png", "jpg", "jpeg"])
 
-# اختيار الجودة
-quality = st.selectbox("Quality", ["1024x1024", "1024x1792", "1792x1024"])
-
-# عدد النتائج
-num_images = st.slider("Number of results", 1, 3, 1)
-
-# ستايل جاهز
-style = st.selectbox("Style", ["Luxury Gold", "Dark Cinematic", "Studio White", "Street Style"])
+# اختيار ستايل
+style = st.selectbox("Style", [
+    "Luxury Gold",
+    "Dark Cinematic",
+    "Studio White"
+])
 
 # برومبت إضافي
-extra_prompt = st.text_input("Extra Prompt (optional)", "")
+extra_prompt = st.text_input("Extra Prompt", "")
 
 # زر التوليد
 if st.button("Generate 🔥"):
 
     if uploaded_file is None:
-        st.warning("Please upload an image first")
+        st.warning("Upload image first")
     else:
-        with st.spinner("Generating... 🔥"):
+        with st.spinner("Generating PRO result... 🔥"):
 
-            # تحويل الصورة
-            image_bytes = uploaded_file.read()
-            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+            # حفظ الصورة مؤقت
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+                temp_file.write(uploaded_file.read())
+                temp_path = temp_file.name
 
-            # تحديد الستايل
+            # ستايلات
             if style == "Luxury Gold":
-                style_prompt = "ultra luxury golden product poster, cinematic lighting, premium brand look"
+                style_prompt = "luxury gold product advertisement, cinematic lighting, premium brand"
             elif style == "Dark Cinematic":
-                style_prompt = "dark cinematic product shot, dramatic shadows, moody lighting"
-            elif style == "Studio White":
-                style_prompt = "clean white studio product photography, soft shadows, minimal background"
+                style_prompt = "dark cinematic product shot, dramatic shadows"
             else:
-                style_prompt = "urban street style product shot, trendy fashion lighting"
+                style_prompt = "clean white studio product photography"
 
-            # البرومبت النهائي
-            final_prompt = f"""
-            Keep the exact product unchanged. Do not modify its design.
-            Improve lighting, background, and presentation only.
+            # برومبت نهائي
+            prompt = f"""
+            keep the product EXACTLY the same
+            do not change shape or logo
+
+            only change background and lighting
 
             {style_prompt}
 
             {extra_prompt}
             """
 
-            # طلب التوليد
-            response = client.images.edit(
-                model="gpt-image-1",
-                images=[image_base64],
-                prompt=final_prompt,
-                size=quality
+            # 🔥 موديل احترافي من Replicate
+            output = replicate_client.run(
+                "stability-ai/sdxl:latest",
+                input={
+                    "image": open(temp_path, "rb"),
+                    "prompt": prompt
+                }
             )
 
             # عرض النتيجة
-            result_image = base64.b64decode(response.data[0].b64_json)
-            st.image(result_image, caption="Generated Result 🔥") 
+            st.image(output)
