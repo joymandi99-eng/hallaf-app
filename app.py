@@ -1,110 +1,70 @@
 import streamlit as st
-from PIL import Image
-import requests
+from openai import OpenAI
 import base64
-import io
-import random
 
-st.set_page_config(layout="wide")
+# إعداد API
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# عنوان التطبيق
+st.set_page_config(page_title="Nourallah AI Studio PRO MAX", layout="centered")
 
 st.title("Nourallah AI Studio PRO MAX 🔥")
 
-# ====== UI ======
-col1, col2 = st.columns(2)
+# رفع الصورة
+uploaded_file = st.file_uploader("Upload Product Image", type=["png", "jpg", "jpeg"])
 
-with col1:
-    uploaded = st.file_uploader("Upload Product Image", type=["png","jpg","jpeg"])
-    style = st.selectbox("Style", [
-        "Luxury Gold",
-        "Dark Cinematic",
-        "Streetwear",
-        "Minimal Clean",
-        "Studio White"
-    ])
-    extra_prompt = st.text_input("Extra Prompt (optional)")
-    generate = st.button("Generate 🔥")
+# اختيار الجودة
+quality = st.selectbox("Quality", ["1024x1024", "1024x1792", "1792x1024"])
 
-with col2:
-    quality = st.selectbox("Quality", ["1024x1024", "1792x1024", "1024x1792"])
-    variations = st.slider("Number of results", 1, 3, 1)
-    seed_lock = st.toggle("Lock style", value=True)
-    seed = st.number_input("Seed", value=1234) if seed_lock else random.randint(1,999999)
+# عدد النتائج
+num_images = st.slider("Number of results", 1, 3, 1)
 
-# ====== Prompt Builder ======
-def build_prompt(style, extra):
-    base = {
-        "Luxury Gold": "ultra luxury cinematic product poster, black background, gold lighting, dramatic shadows, premium branding",
-        "Dark Cinematic": "dark cinematic product shot, moody lighting, high contrast",
-        "Streetwear": "urban streetwear fashion campaign, edgy lighting",
-        "Minimal Clean": "minimal clean product shot, soft light, white background",
-        "Studio White": "professional studio product photo, white background, commercial lighting"
-    }[style]
+# ستايل جاهز
+style = st.selectbox("Style", ["Luxury Gold", "Dark Cinematic", "Studio White", "Street Style"])
 
-    booster = "ultra realistic, sharp focus, high detail texture, professional advertising, 8k"
+# برومبت إضافي
+extra_prompt = st.text_input("Extra Prompt (optional)", "")
 
-    return base + ", " + booster + ", " + extra
+# زر التوليد
+if st.button("Generate 🔥"):
 
-# ====== Generate Images (Stable + Retry) ======
-def generate_images(img_b64, prompt, size, n):
-    api_key = st.secrets.get("OPENAI_API_KEY", "")
+    if uploaded_file is None:
+        st.warning("Please upload an image first")
+    else:
+        with st.spinner("Generating... 🔥"):
 
-    results = []
+            # تحويل الصورة
+            image_bytes = uploaded_file.read()
+            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    for i in range(n):
-        for attempt in range(3):
-            try:
-                response = requests.post(
-                    "https://api.openai.com/v1/images/edits",
-                    headers={
-                        "Authorization": f"Bearer {api_key}"
-                    },
-                    json={
-                        "model": "gpt-image-1",
-                        "image": img_b64,
-                        "prompt": prompt,
-                        "size": size
-                    },
-                    timeout=180
-                )
+            # تحديد الستايل
+            if style == "Luxury Gold":
+                style_prompt = "ultra luxury golden product poster, cinematic lighting, premium brand look"
+            elif style == "Dark Cinematic":
+                style_prompt = "dark cinematic product shot, dramatic shadows, moody lighting"
+            elif style == "Studio White":
+                style_prompt = "clean white studio product photography, soft shadows, minimal background"
+            else:
+                style_prompt = "urban street style product shot, trendy fashion lighting"
 
-                if response.status_code == 200:
-                    data = response.json()
-                    img = base64.b64decode(data["data"][0]["b64_json"])
-                    results.append(img)
-                    break
-                else:
-                    if attempt == 2:
-                        st.error(response.text)
+            # البرومبت النهائي
+            final_prompt = f"""
+            Keep the exact product unchanged. Do not modify its design.
+            Improve lighting, background, and presentation only.
 
-            except Exception as e:
-                if attempt == 2:
-                    st.error(str(e))
+            {style_prompt}
 
-    return results
+            {extra_prompt}
+            """
 
-# ====== MAIN ======
-if uploaded and generate:
-    st.info("Processing... ⏳")
+            # طلب التوليد
+            response = client.images.edit(
+                model="gpt-image-1",
+                images=[image_base64],
+                prompt=final_prompt,
+                size=quality
+            )
 
-    image = Image.open(uploaded).convert("RGB")
-
-    buf = io.BytesIO()
-    image.save(buf, format="PNG")
-    img_b64 = base64.b64encode(buf.getvalue()).decode()
-
-    prompt = build_prompt(style, extra_prompt)
-
-    outputs = generate_images(img_b64, prompt, quality, variations)
-
-    if outputs:
-        st.success("Done 🔥")
-
-        cols = st.columns(len(outputs))
-        for i, out in enumerate(outputs):
-            with cols[i]:
-                st.image(out, use_column_width=True)
-                st.download_button(
-                    f"Download {i+1}",
-                    out,
-                    file_name=f"result_{i+1}.png"
-                ) 
+            # عرض النتيجة
+            result_image = base64.b64decode(response.data[0].b64_json)
+            st.image(result_image, caption="Generated Result 🔥") 
